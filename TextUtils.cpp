@@ -1,8 +1,8 @@
 #include "TextUtils.h"
-#include <sstream>
-#include <cctype>
-#include <unordered_map>
+#include <regex>
 #include <vector>
+#include <utility>
+#include <cctype>
 
 namespace TextUtils {
 
@@ -26,65 +26,63 @@ namespace TextUtils {
         return text.substr(start, end - start);
     }
 
-    // Reflection is done in two passes so that a word does not get
-    // swapped twice (e.g. "i" -> "you" -> "i" again). The first pass
-    // maps every recognized pronoun to a unique placeholder token, and
-    // the second pass turns each placeholder into the final word.
+    // Reflection swaps first- and second-person pronouns so captured
+    // user text can be echoed back naturally (e.g. "my mother"
+    // becomes "your mother"). This is done in two regex_replace()
+    // passes so a word is never swapped back a second time:
+    //   Pass 1 maps each recognized word/phrase to a unique numeric
+    //   placeholder token (e.g. "i am" -> "@@1@@").
+    //   Pass 2 maps each placeholder token to its final word
+    //   (e.g. "@@1@@" -> "you are").
+    // The placeholder tokens are purely numeric so they can never be
+    // accidentally re-matched by the word-based patterns in pass 1.
     std::string reflect(const std::string& fragment) {
-        static const std::unordered_map<std::string, std::string> toPlaceholder = {
-            {"i", "@YOU@"},        {"me", "@YOU@"},       {"my", "@YOUR@"},
-            {"mine", "@YOURS@"},   {"myself", "@YOURSELF@"},
-            {"am", "@ARE@"},
-            {"you", "@I@"},        {"your", "@MY@"},      {"yours", "@MINE@"},
-            {"yourself", "@MYSELF@"},
-            {"are", "@AM@"}
+        std::string text = fragment;
+
+        // Pass 1: word/phrase -> placeholder. Multi-word phrases are
+        // listed before the single words they contain so "i am" is
+        // swapped as a unit before the lone "i" or "am" rules can fire.
+        static const std::vector<std::pair<std::regex, std::string>> toPlaceholder = {
+            {std::regex(R"(\bi'm\b)", std::regex::icase),        "@@1@@"},
+            {std::regex(R"(\bi am\b)", std::regex::icase),       "@@1@@"},
+            {std::regex(R"(\byou're\b)", std::regex::icase),     "@@2@@"},
+            {std::regex(R"(\byou are\b)", std::regex::icase),    "@@2@@"},
+            {std::regex(R"(\bmyself\b)", std::regex::icase),     "@@3@@"},
+            {std::regex(R"(\byourself\b)", std::regex::icase),   "@@4@@"},
+            {std::regex(R"(\bmine\b)", std::regex::icase),       "@@5@@"},
+            {std::regex(R"(\byours\b)", std::regex::icase),      "@@6@@"},
+            {std::regex(R"(\bmy\b)", std::regex::icase),         "@@7@@"},
+            {std::regex(R"(\byour\b)", std::regex::icase),       "@@8@@"},
+            {std::regex(R"(\bme\b)", std::regex::icase),         "@@9@@"},
+            {std::regex(R"(\bi\b)", std::regex::icase),          "@@9@@"},
+            {std::regex(R"(\byou\b)", std::regex::icase),        "@@10@@"},
+            {std::regex(R"(\bam\b)", std::regex::icase),         "@@11@@"},
+            {std::regex(R"(\bare\b)", std::regex::icase),        "@@12@@"}
         };
-        static const std::unordered_map<std::string, std::string> toFinalWord = {
-            {"@YOU@", "you"},     {"@YOUR@", "your"},     {"@YOURS@", "yours"},
-            {"@YOURSELF@", "yourself"},
-            {"@ARE@", "are"},
-            {"@I@", "i"},         {"@MY@", "my"},         {"@MINE@", "mine"},
-            {"@MYSELF@", "myself"},
-            {"@AM@", "am"}
+        for (const auto& rule : toPlaceholder) {
+            text = std::regex_replace(text, rule.first, rule.second);
+        }
+
+        // Pass 2: placeholder -> final word.
+        static const std::vector<std::pair<std::regex, std::string>> toFinalWord = {
+            {std::regex(R"(@@1@@)"),  "you are"},
+            {std::regex(R"(@@2@@)"),  "i am"},
+            {std::regex(R"(@@3@@)"),  "yourself"},
+            {std::regex(R"(@@4@@)"),  "myself"},
+            {std::regex(R"(@@5@@)"),  "yours"},
+            {std::regex(R"(@@6@@)"),  "mine"},
+            {std::regex(R"(@@7@@)"),  "your"},
+            {std::regex(R"(@@8@@)"),  "my"},
+            {std::regex(R"(@@9@@)"),  "you"},
+            {std::regex(R"(@@10@@)"), "i"},
+            {std::regex(R"(@@11@@)"), "are"},
+            {std::regex(R"(@@12@@)"), "am"}
         };
-
-        std::istringstream iss(fragment);
-        std::vector<std::string> words;
-        std::string word;
-        while (iss >> word) {
-            words.push_back(word);
+        for (const auto& rule : toFinalWord) {
+            text = std::regex_replace(text, rule.first, rule.second);
         }
 
-        // Phase 1: swap recognized words to placeholders, keeping any
-        // trailing punctuation attached to the original word.
-        for (std::string& w : words) {
-            std::string lower = toLower(w);
-            std::string trailingPunct;
-            while (!lower.empty() && std::ispunct(static_cast<unsigned char>(lower.back()))) {
-                trailingPunct = lower.back() + trailingPunct;
-                lower.pop_back();
-            }
-            auto it = toPlaceholder.find(lower);
-            if (it != toPlaceholder.end()) {
-                w = it->second + trailingPunct;
-            }
-        }
-
-        // Phase 2: swap placeholders to their final lowercase word.
-        std::string result;
-        for (std::string& w : words) {
-            for (const auto& entry : toFinalWord) {
-                size_t pos = w.find(entry.first);
-                if (pos != std::string::npos) {
-                    w.replace(pos, entry.first.size(), entry.second);
-                }
-            }
-            if (!result.empty()) {
-                result += " ";
-            }
-            result += w;
-        }
-        return result;
+        return text;
     }
 
 }
