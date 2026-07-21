@@ -1,116 +1,49 @@
-ELIZA Psychiatrist Chatbot - Milestone 2
------------------------------------------
+ELIZA Psychiatrist Chatbot - Final Submission
+-----------------------------------------------
 
 Group Members:
 Aarinn Vittolia
 
-
 Project Description
 --------------------
 
-This project simulates a conversation between a user and a psychiatrist,
-based on ELIZA, one of the earliest natural language processing programs.
-The user communicates using normal sentences, common phrases, or short
-answers, and the program uses C++ regular expressions (regex_match(),
-regex_search(), regex_replace()) to recognize patterns in the input and
-generate related responses.
+This project simulates a conversation between a user and a psychiatrist, based on ELIZA, one of the earliest natural language processing programs. The user communicates using normal sentences, common phrases, or short answers such as "yes" or "I don't know" -- there is no menu and no fixed input format.
 
-For Milestone 2, the program was extended with a configuration-driven
-session manager, modeled on the same Config/Region/Session pattern used
-in the QParking project:
+The program uses C++ regular expressions to recognize patterns in the user's input and generate a related response. All three required regex functions are used: regex_match() confirms the user typed the exit command "bye". regex_search() is used across all seven functionality components (56 patterns total) to detect keywords and phrases in the user's input. regex_replace() is used in TextUtils::reflect() to swap first- and second-person pronouns (e.g. "my mother" becomes "your mother") so captured text can be echoed back naturally, the way the original ELIZA did.
 
-  - On startup, the program reads a configuration file that specifies
-    the session grid size and the names of the region file and the
-    session records file.
-  - It then loads the initial session region: a grid of chat session
-    slots, where each cell holds a session ID, "-1" for an empty slot,
-    or "R" for a reserved slot.
-  - It loads the registered session records (id, username, contact,
-    start time, end time) from the session file.
-  - It displays the initial session region to the console and saves it
-    to initial_region_output.txt.
-  - It then starts the normal ELIZA conversation loop, unchanged from
-    Milestone 1: the chatbot responds to generic verbs, love/relationship
-    topics, concerns, financial topics, wellbeing, education, and
-    entertainment topics, detects repeated identical answers and asks
-    the user for something different, and ends the session when the
-    user types "bye".
-
+The program stores every normalized user response. If the exact same response is entered twice in a row, ELIZA asks the user to say something different instead of answering normally. If no component's patterns match the input, ELIZA falls back to a rotating set of generic prompts so every input still receives a response. The conversation ends when the user types "bye".
 
 Project Files
 -------------
 
-main.cpp
-  Entry point. Reads the config file, loads the region and session
-  files, displays and saves the initial region, then runs the ELIZA
-  conversation loop.
+main.cpp - Entry point. Starts the ELIZA conversation loop. Contains only int main().
 
-Config.cpp / Config.h
-  Reads the configuration file (grid size, region file name, session
-  file name).
+ConversationManager.cpp / ConversationManager.h - Controls the overall conversation: reading input, detecting "bye", catching repeated identical answers, dispatching to each functionality component in order, and falling back to a generic response when nothing matches.
 
-Region.cpp / Region.h
-  Loads the session grid from a CSV region file, displays it, and
-  saves it back out to initial_region_output.txt.
+GenericVerb.cpp / GenericVerb.h - Handles common verb patterns such as have, purchase, travel, know, and learn.
 
-Session.cpp / Session.h
-  Loads registered session records from a CSV session file.
+Relationship.cpp / Relationship.h - Handles love and relationship related input (love, spouse, girlfriend, boyfriend, breakups).
 
-ConversationManager.cpp / ConversationManager.h
-  Controls the ELIZA conversation flow, repeated response detection,
-  program termination, and dispatch to each functionality component.
+Concern.cpp / Concern.h - Handles serious or concerning statements (hate, anger, fear, worry, and statements naming suicide, which receive a distinct, supportive response).
 
-GenericVerb.cpp / GenericVerb.h
-  Handles common verb patterns such as have, purchase, travel, know,
-  and learn.
+Financial.cpp / Financial.h - Handles money, savings, investments, debt, and bankruptcy related topics.
 
-Relationship.cpp / Relationship.h
-  Handles love and relationship related input.
+Wellbeing.cpp / Wellbeing.h - Handles exercise, vitamins, relaxation, sleep, tiredness, and stress.
 
-Concern.cpp / Concern.h
-  Handles serious or concerning words and statements.
+Education.cpp / Education.h - Handles school, university, courses, studying, exams, and graduation related topics.
 
-Financial.cpp / Financial.h
-  Handles money and financial related topics.
+Entertainment.cpp / Entertainment.h - Handles concerts, movies, dancing, restaurants, and bars.
 
-Wellbeing.cpp / Wellbeing.h
-  Handles exercise, relaxation, sleep, vitamins, and other wellbeing
-  topics.
-
-Education.cpp / Education.h
-  Handles school, university, courses, studying, and other education
-  related topics.
-
-Entertainment.cpp / Entertainment.h
-  Handles movies, concerts, music, dancing, restaurants, bars, and
-  other entertainment topics.
-
-TextUtils.cpp / TextUtils.h
-  Shared text helper functions (trimming, case conversion, pronoun
-  reflection) used across the functionality components.
-
-config.txt
-  Sample configuration file: grid rows, grid columns, region file
-  name, session file name.
-
-region.csv
-  Sample initial session region grid.
-
-sessions.csv
-  Sample registered session records.
-
+TextUtils.cpp / TextUtils.h - Shared text helper functions used across the components: lowercasing, trimming, and pronoun reflection (implemented with regex_replace()).
 
 Compilation Instructions
 -------------------------
 
-Open a terminal and go to the directory containing all project source
-and header files. Compile using:
+Open a terminal in the directory containing all of the .cpp and .h files listed above and run:
 
-g++ -std=c++11 main.cpp Config.cpp Region.cpp Session.cpp ConversationManager.cpp GenericVerb.cpp Relationship.cpp Concern.cpp Financial.cpp Wellbeing.cpp Education.cpp Entertainment.cpp TextUtils.cpp -o eliza
+g++ -std=c++11 main.cpp ConversationManager.cpp TextUtils.cpp GenericVerb.cpp Relationship.cpp Concern.cpp Financial.cpp Wellbeing.cpp Education.cpp Entertainment.cpp -o eliza
 
-If the program compiles successfully, an executable file named "eliza"
-will be created.
-
+This produces an executable named "eliza". The program requires the C++11 standard because it uses the <regex> library.
 
 Run Instructions
 ------------------
@@ -119,26 +52,4 @@ Run the program using:
 
 ./eliza
 
-The program will prompt for a configuration filename. Enter:
-
-config.txt
-
-The program will then load the configuration, session region, and
-session records, display and save the initial session region, and
-start the ELIZA conversation. Enter normal sentences, common phrases,
-or short answers to talk with ELIZA.
-
-To end the conversation, type:
-
-bye
-
-ELIZA will display a goodbye message and the program will end.
-
-
-Notes
-------
-
-All C++ source files and header files must be in the same directory
-before compiling the program, along with config.txt, region.csv, and
-sessions.csv. The program uses the C++11 standard because C++ regular
-expressions are used for pattern matching.
+ELIZA will print a welcome message and wait for input. Type ordinary sentences, short phrases, or answers like "yes" or "I don't know". Type "bye" at any time to end the conversation; ELIZA will print a goodbye message and the program will exit.
